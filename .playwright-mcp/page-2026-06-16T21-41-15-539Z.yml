@@ -1,0 +1,25 @@
+- generic [ref=e3]:
+  - banner [ref=e4]: Agenentic Topology
+  - generic [ref=e17]:
+    - generic [ref=e18]: EVENT LOG
+    - generic [ref=e19]:
+      - paragraph [ref=e20]: "art.created: Citation agent pass: every important claim needs a supporting source location; weak or uncited claims are softened."
+      - paragraph [ref=e21]: "ag.started: Integrate findings, check coverage against the brief, and resolve duplicated or weak claims."
+      - paragraph [ref=e22]: "sig.transferred: Condensed lane findings sent upward for synthesis and citation-quality judgment."
+      - paragraph [ref=e23]: "art.created: Reliability lane: research quality depends on citations, source quality, observability, and avoiding duplicated subagent work."
+      - paragraph [ref=e24]: "art.created: Search lane: subagents use broad-to-narrow search, evaluate intermediate results, and adapt when sources are weak."
+      - paragraph [ref=e25]: "art.created: Architecture lane: lead researcher decomposes the query, spawns specialized subagents, then gathers condensed findings."
+      - paragraph [ref=e26]: "ag.started: Design research lanes: architecture, delegation prompts, source evaluation, and production risks."
+      - paragraph [ref=e27]: "sig.transferred: Clean research brief sent to the Illuminator for strategy and lane design."
+      - paragraph [ref=e28]: "art.created: Brief: explain when multi-agent research helps; cover decomposition, parallel search, source quality, citations, and failure modes."
+      - paragraph [ref=e29]: "ag.started: Clarify the research question, effort budget, success criteria, and source-quality rules."
+      - paragraph [ref=e30]: "wf.started: Research how multi-agent systems improve complex web research, using Anthropic-style lead/subagent architecture as the reference problem space."
+      - paragraph [ref=e31]: "runtime.ready: Press Run Mock to replay the event contract."
+  - contentinfo [ref=e8]:
+    - generic [ref=e9]: "Citation pass: Citation agent pass: every important claim needs a supporting source location; weak or uncited claims are softened."
+    - generic [ref=e10]:
+      - button "RUN" [ref=e11] [cursor=pointer]
+      - button "RESET" [ref=e12] [cursor=pointer]
+      - button "LOGS" [active] [ref=e13] [cursor=pointer]
+      - button "CINNABAR" [ref=e15] [cursor=pointer]
+      - button "PALLET" [ref=e16] [cursor=pointer]

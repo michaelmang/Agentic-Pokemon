@@ -1,0 +1,10 @@
+- generic [ref=e3]:
+  - banner [ref=e4]: Agenentic Topology
+  - contentinfo [ref=e8]:
+    - generic [ref=e9]: "Mock ready: Press Run Mock to replay the event contract."
+    - generic [ref=e10]:
+      - button "RUN" [active] [ref=e11] [cursor=pointer]
+      - button "RESET" [ref=e12] [cursor=pointer]
+      - button "LOGS" [ref=e13] [cursor=pointer]
+      - button "CINNABAR" [ref=e15] [cursor=pointer]
+      - button "PALLET" [ref=e16] [cursor=pointer]

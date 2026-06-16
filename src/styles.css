@@ -1,6 +1,12 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body,
-#app {
+#root {
   width: 100%;
   height: 100%;
   margin: 0;
@@ -9,9 +15,168 @@ body,
 body {
   overflow: hidden;
   background: #25231f;
+  font-family: 'Courier New', monospace;
 }
 
 canvas {
   display: block;
   image-rendering: pixelated;
+}
+
+/* ── App shell ── */
+
+.topology-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #25231f;
+}
+
+.topology-title {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  background: #f9f5e5;
+  border-bottom: 3px solid #2d2a24;
+  font-size: 20px;
+  font-weight: bold;
+  color: #25231f;
+  letter-spacing: 0.04em;
+}
+
+.canvas-area {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.phaser-host {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Footer ── */
+
+.topology-footer {
+  flex-shrink: 0;
+  background: #f9f5e5;
+  border-top: 3px solid #2d2a24;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px 8px;
+}
+
+/* ── Status bar ── */
+
+.status-bar {
+  font-size: 14px;
+  color: #25231f;
+  text-align: center;
+  padding: 2px 8px;
+  min-height: 22px;
+  word-break: break-word;
+}
+
+/* ── Controls ── */
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ctrl-btn {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  font-weight: bold;
+  color: #25231f;
+  background: rgba(255, 255, 255, 0.96);
+  border: 2px solid #2d2a24;
+  padding: 4px 14px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  user-select: none;
+}
+
+.ctrl-btn:hover {
+  background: #f8eaa5;
+}
+
+.ctrl-btn.active {
+  background: #f8eaa5;
+}
+
+.controls-divider {
+  width: 1px;
+  height: 22px;
+  background: #2d2a24;
+  opacity: 0.3;
+  margin: 0 2px;
+}
+
+/* ── Event log overlay ── */
+
+.event-log {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  width: 260px;
+  max-height: 340px;
+  background: rgba(249, 245, 229, 0.97);
+  border: 3px solid #2d2a24;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+.event-log-title {
+  flex-shrink: 0;
+  padding: 8px 12px 6px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #25231f;
+  text-align: center;
+  border-bottom: 1px solid rgba(45, 42, 36, 0.2);
+}
+
+.event-log-viewport {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #514d43 #d7d0b8;
+}
+
+.event-log-viewport::-webkit-scrollbar {
+  width: 6px;
+}
+
+.event-log-viewport::-webkit-scrollbar-track {
+  background: #d7d0b8;
+}
+
+.event-log-viewport::-webkit-scrollbar-thumb {
+  background: #514d43;
+}
+
+.event-log-entry {
+  margin: 0 0 6px;
+  font-size: 10px;
+  color: #514d43;
+  line-height: 1.5;
+}
+
+.event-log-empty {
+  font-size: 10px;
+  color: #aaa;
 }
