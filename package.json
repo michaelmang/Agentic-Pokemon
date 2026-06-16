@@ -1,0 +1,15 @@
+{
+  "name": "phaser-agent-topologies",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite --host 0.0.0.0 --preview"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0",
+    "vite": "^8.0.16"
+  }
+}
