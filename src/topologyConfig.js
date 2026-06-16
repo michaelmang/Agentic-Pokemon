@@ -108,6 +108,7 @@ export const embodiedCharacters = {
     embodimentId: 'psychic-lineage',
     displayName: 'Abra',
     sprite: 'abra',
+    spriteBack: 'abrab',
     seedDescription:
       'Abra is a quiet purifier who sleeps near the boundary between confusion and clarity; Abra senses stray assumptions, irrelevant details, and missing constraints before others notice them; Abra prefers to simplify a problem before anyone tries to solve it; Abra becomes alert when a raw task arrives and settles once the signal is clean.',
     visual: {
@@ -123,6 +124,7 @@ export const embodiedCharacters = {
     embodimentId: 'psychic-lineage',
     displayName: 'Kadabra',
     sprite: 'kadabra',
+    spriteBack: 'kadabrab',
     seedDescription:
       'Kadabra is an illuminator who translates clean signal into understanding; Kadabra carries the doctrine of the topology and knows how to choose a useful frame; Kadabra turns constraints into criteria and criteria into structured work; Kadabra becomes brightest when a purified problem needs interpretation.',
     visual: {
@@ -138,6 +140,7 @@ export const embodiedCharacters = {
     embodimentId: 'psychic-lineage',
     displayName: 'Alakazam',
     sprite: 'alakazam',
+    spriteBack: 'alakazamb',
     seedDescription:
       'Alakazam is a perfector who waits for partial meanings to become ready for judgment; Alakazam weighs the framed result against the original intent; Alakazam resolves tensions between candidate outputs and gives the work final form; Alakazam becomes radiant when synthesis is complete.',
     visual: {
