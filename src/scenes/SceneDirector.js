@@ -29,6 +29,17 @@ function transferVerb(context) {
   return phrase.length > 42 ? `${phrase.slice(0, 39)}...` : phrase;
 }
 
+function beamPoint(from, to, progress, wave = 0) {
+  const x = Phaser.Math.Linear(from.x, to.x, progress);
+  const y = Phaser.Math.Linear(from.y, to.y, progress);
+  const angle = Phaser.Math.Angle.Between(from.x, from.y, to.x, to.y);
+  const normal = angle + Math.PI / 2;
+  return {
+    x: x + Math.cos(normal) * wave,
+    y: y + Math.sin(normal) * wave,
+  };
+}
+
 function textStyle(fontSize, bold = false) {
   return {
     fontFamily: 'Courier New, monospace',
@@ -46,6 +57,7 @@ export class SceneDirector {
   #scene;
   #nodes = new Map();  // id → { container, shadow, sprite, node, homeX, homeY }
   #overlay = null;
+  #effects = [];
   #timers = [];
 
   constructor(scene) {
@@ -189,6 +201,13 @@ export class SceneDirector {
     const H = s.scale.height;
 
     const overlay = s.add.container(W / 2, H / 2).setDepth(42);
+    const targetSprite = s.add.image(150, -124, target.node.sprite).setScale(2.2).setTint(target.node.accent);
+    const sourceSprite = s.add.image(-190, 62, source.node.character?.spriteBack || source.node.sprite)
+      .setScale(2.6)
+      .setTint(source.node.accent);
+    const beamGlow = s.add.rectangle(-18, -34, 306, 20, 0x8f4cff, 0.28).setRotation(-0.58);
+    const beamCore = s.add.rectangle(-18, -34, 296, 10, 0x2dd7ff, 0.88).setRotation(-0.58);
+    const beamHot = s.add.rectangle(-18, -34, 296, 4, 0xffffff, 0.95).setRotation(-0.58);
     const dialogue = s.add.text(-250, 114, '', {
       ...textStyle(15), lineSpacing: 4, wordWrap: { width: 335 },
     });
@@ -202,20 +221,32 @@ export class SceneDirector {
       s.add.text(48, 10, battleName(source.node), textStyle(18, true)),
       s.add.rectangle(-164, -126, 116, 8, target.node.accent, 0.92).setStrokeStyle(2, 0x2d2a24),
       s.add.rectangle(134, 52, 132, 8, source.node.accent, 0.92).setStrokeStyle(2, 0x2d2a24),
-      s.add.image(150, -124, target.node.sprite).setScale(2.2).setTint(target.node.accent),
-      s.add.image(-190, 62, source.node.character?.spriteBack || source.node.sprite).setScale(2.6).setTint(source.node.accent),
-      s.add.rectangle(-74, 154, 382, 96, 0xffffff, 0.98).setStrokeStyle(3, 0x2d2a24),
-      s.add.rectangle(202, 154, 170, 96, 0xffffff, 0.98).setStrokeStyle(3, 0x2d2a24),
-      s.add.text(130, 120, 'Run', { ...textStyle(18), lineSpacing: 6 }),
-      s.add.text(116, 119, '▶', textStyle(16)),
+      targetSprite,
+      sourceSprite,
+      beamGlow,
+      beamCore,
+      beamHot,
+      s.add.rectangle(-102, 154, 326, 96, 0xffffff, 0.98).setStrokeStyle(3, 0x2d2a24),
+      s.add.rectangle(164, 154, 154, 96, 0xffffff, 0.98).setStrokeStyle(3, 0x2d2a24),
+      s.add.text(106, 116, 'MOVE\nPSYBEAM\nACK\nRUN', { ...textStyle(15), lineSpacing: 5 }),
+      s.add.text(92, 145, '▶', textStyle(15)),
       dialogue,
     ]);
 
     this.#overlay = overlay;
-    this.#typeLine(dialogue, `${battleName(source.node)} sent ${transferVerb(context)}.`);
+    s.tweens.add({
+      targets: [beamGlow, beamCore, beamHot],
+      alpha: { from: 0.95, to: 0.42 },
+      duration: 120,
+      repeat: 14,
+      yoyo: true,
+      ease: 'Stepped',
+    });
+    this.#typeLine(dialogue, `${battleName(source.node)} used PSYBEAM.\n${transferVerb(context)}.`);
+    this.#psybeam(overlay, sourceSprite, targetSprite, source.node.accent, target.node.accent);
 
     this.#timers.push(
-      s.time.delayedCall(Math.max(900, dwellMs * 0.45), () => {
+      s.time.delayedCall(Math.max(2100, dwellMs * 0.74), () => {
         this.#typeLine(dialogue, `${battleName(target.node)} received the signal.\n\n${context.phase || 'Communication logged'}.`);
         this.#burst(target.node.x, target.node.y, target.node.accent, 18, 28);
       }),
@@ -223,9 +254,171 @@ export class SceneDirector {
     );
   }
 
+  #psybeam(overlay, sourceSprite, targetSprite, sourceColor, targetColor) {
+    const s = this.#scene;
+    const from = { x: sourceSprite.x + 48, y: sourceSprite.y - 12 };
+    const to = { x: targetSprite.x - 44, y: targetSprite.y + 10 };
+    const angle = Phaser.Math.Angle.Between(from.x, from.y, to.x, to.y);
+    const colors = [0xffffff, 0x8f4cff, sourceColor, 0x2dd7ff, 0xff69f9, targetColor];
+    const beamBody = [];
+    const worldFrom = { x: overlay.x + from.x, y: overlay.y + from.y };
+    const worldTo = { x: overlay.x + to.x, y: overlay.y + to.y };
+
+    s.tweens.add({
+      targets: sourceSprite,
+      x: sourceSprite.x + 14,
+      duration: 90,
+      yoyo: true,
+      ease: 'Quad.out',
+    });
+
+    this.#drawPsybeam(worldFrom, worldTo);
+
+    for (let i = 0; i < 18; i++) {
+      const progress = (i + 1) / 19;
+      const wave = Math.sin(progress * Math.PI * 7) * 16;
+      const { x, y } = beamPoint(from, to, progress, wave);
+      const segment = s.add
+        .rectangle(x, y, 28, 10, colors[i % colors.length], 0.96)
+        .setRotation(angle)
+        .setDepth(45);
+      const highlight = s.add
+        .rectangle(x, y, 14, 4, 0xffffff, 0.96)
+        .setRotation(angle)
+        .setDepth(46);
+
+      beamBody.push(segment, highlight);
+      overlay.add([segment, highlight]);
+    }
+
+    s.tweens.add({
+      targets: beamBody,
+      alpha: 0,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      duration: 1750,
+      ease: 'Stepped',
+      onComplete: () => beamBody.forEach((piece) => piece.destroy()),
+    });
+
+    for (let i = 0; i < 28; i++) {
+      this.#timers.push(
+        s.time.delayedCall(i * 32, () => {
+          const progress = (i + 1) / 29;
+          const wave = Math.sin(progress * Math.PI * 7) * 16;
+          const { x, y } = beamPoint(from, to, progress, wave);
+          const segment = s.add
+            .rectangle(x, y, Phaser.Math.Between(14, 24), Phaser.Math.Between(4, 8), colors[i % colors.length], 0.95)
+            .setRotation(angle)
+            .setDepth(45);
+          const spark = s.add
+            .rectangle(x + Phaser.Math.Between(-5, 5), y + Phaser.Math.Between(-5, 5), 5, 5, 0xffffff, 0.95)
+            .setRotation(angle)
+            .setDepth(46);
+
+          overlay.add([segment, spark]);
+          s.tweens.add({
+            targets: [segment, spark],
+            alpha: 0,
+            scaleX: 1.35,
+            scaleY: 1.35,
+            duration: 520,
+            ease: 'Stepped',
+            onComplete: () => {
+              segment.destroy();
+              spark.destroy();
+            },
+          });
+        }),
+      );
+    }
+
+    this.#timers.push(
+      s.time.delayedCall(1240, () => {
+        for (let i = 0; i < 12; i++) {
+          const ring = s.add
+            .rectangle(to.x, to.y, 8 + i * 4, 8 + i * 4, colors[i % colors.length], 0)
+            .setStrokeStyle(2, colors[i % colors.length], 0.9)
+            .setRotation(Math.PI / 4)
+            .setDepth(46);
+          overlay.add(ring);
+          s.tweens.add({
+            targets: ring,
+            scaleX: 1.6,
+            scaleY: 1.6,
+            alpha: 0,
+            duration: 300 + i * 18,
+            ease: 'Sine.out',
+            onComplete: () => ring.destroy(),
+          });
+        }
+        s.tweens.add({
+          targets: targetSprite,
+          x: { from: targetSprite.x - 5, to: targetSprite.x + 5 },
+          duration: 42,
+          repeat: 8,
+          yoyo: true,
+          ease: 'Stepped',
+          onComplete: () => {
+            targetSprite.x = 150;
+          },
+        });
+      }),
+    );
+  }
+
+  #drawPsybeam(from, to) {
+    const s = this.#scene;
+    const lineBack = s.add.line(0, 0, from.x, from.y, to.x, to.y, 0x8f4cff, 0.72)
+      .setOrigin(0)
+      .setLineWidth(18)
+      .setDepth(61);
+    const lineMid = s.add.line(0, 0, from.x, from.y, to.x, to.y, 0x2dd7ff, 0.92)
+      .setOrigin(0)
+      .setLineWidth(10)
+      .setDepth(62);
+    const lineHot = s.add.line(0, 0, from.x, from.y, to.x, to.y, 0xffffff, 0.95)
+      .setOrigin(0)
+      .setLineWidth(4)
+      .setDepth(63);
+    const beam = s.add.graphics().setDepth(60);
+    const beamLines = [lineBack, lineMid, lineHot];
+    const drawWave = (width, color, alpha, offset = 0) => {
+      beam.lineStyle(width, color, alpha);
+      beam.beginPath();
+      for (let i = 0; i <= 28; i++) {
+        const progress = i / 28;
+        const point = beamPoint(from, to, progress, Math.sin(progress * Math.PI * 7) * 18 + offset);
+        if (i === 0) beam.moveTo(point.x, point.y);
+        else beam.lineTo(point.x, point.y);
+      }
+      beam.strokePath();
+    };
+
+    drawWave(16, 0x8f4cff, 0.58, 0);
+    drawWave(9, 0x2dd7ff, 0.9, 4);
+    drawWave(4, 0xffffff, 0.96, -4);
+
+    this.#effects.push(beam, ...beamLines);
+    s.tweens.add({
+      targets: [beam, ...beamLines],
+      alpha: 0,
+      duration: 1750,
+      ease: 'Stepped',
+      onComplete: () => {
+        Phaser.Utils.Array.Remove(this.#effects, beam);
+        beamLines.forEach((line) => Phaser.Utils.Array.Remove(this.#effects, line));
+        beam.destroy();
+        beamLines.forEach((line) => line.destroy());
+      },
+    });
+  }
+
   #clearOverlay() {
     this.#timers.forEach((t) => t.remove(false));
     this.#timers = [];
+    this.#effects.forEach((effect) => effect.destroy());
+    this.#effects = [];
     this.#overlay?.destroy();
     this.#overlay = null;
   }

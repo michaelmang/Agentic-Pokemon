@@ -20,6 +20,7 @@ export class TopologyScene extends Phaser.Scene {
     this.director = null;
     this.nodeSounds = new Map();
     this.runtime = null;
+    this.unsubscribeRuntime = null;
     this.mapLayer = null;
     this.mapBorder = null;
   }
@@ -36,6 +37,8 @@ export class TopologyScene extends Phaser.Scene {
     this.createMap(this.currentLocation);
     this.createNodes();
     this.createAgenticRuntime();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.dispose());
   }
 
   createMap(locationId) {
@@ -76,7 +79,7 @@ export class TopologyScene extends Phaser.Scene {
 
   createAgenticRuntime() {
     this.runtime = createMockAgenticRuntime();
-    this.runtime.subscribe((event) => this.applyAgenticEvent(event));
+    this.unsubscribeRuntime = this.runtime.subscribe((event) => this.applyAgenticEvent(event));
     this.applyAgenticEvent({
       type: EventType.RUNTIME_READY,
       phase: 'Ready',
@@ -128,6 +131,12 @@ export class TopologyScene extends Phaser.Scene {
     };
 
     handlers[event.type]?.();
+  }
+
+  dispose() {
+    this.runtime?.stop();
+    this.unsubscribeRuntime?.();
+    this.unsubscribeRuntime = null;
   }
 
   pingNode(id) {
