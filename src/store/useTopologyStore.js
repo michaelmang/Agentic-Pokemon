@@ -1,15 +1,22 @@
 import { create } from 'zustand';
+import { EventType } from '../events/agenticEvents.js';
 
 const MAX_LOG = 24;
 
+const LOG_LABEL = {
+  [EventType.RUNTIME_READY]:      'ready',
+  [EventType.WORKFLOW_STARTED]:   'wf.started',
+  [EventType.WORKFLOW_COMPLETED]: 'wf.done',
+  [EventType.WORKFLOW_RESET]:     'wf.reset',
+  [EventType.AGENT_STARTED]:      'ag.started',
+  [EventType.ARTIFACT_CREATED]:   'art.created',
+  [EventType.SIGNAL_TRANSFERRED]: 'sig.tx',
+};
+
 function formatLogEvent(event) {
+  const label = LOG_LABEL[event.type] ?? event.type;
   const detail = event.artifact || event.message || event.phase || '';
-  const compactType = event.type
-    .replace('workflow.', 'wf.')
-    .replace('agent.', 'ag.')
-    .replace('artifact.', 'art.')
-    .replace('signal.', 'sig.');
-  return `${compactType}: ${detail}`;
+  return `${label}: ${detail}`;
 }
 
 export const useTopologyStore = create((set) => ({
@@ -33,8 +40,8 @@ export const useTopologyStore = create((set) => ({
   dispatchCommand: (command) =>
     set(() => ({
       command,
-      ...(command.type === 'start' && { eventLog: [], status: 'Starting...' }),
-      ...(command.type === 'reset' && { eventLog: [], status: 'Ready.' }),
+      ...(command.type === 'start'       && { eventLog: [], status: 'Starting...' }),
+      ...(command.type === 'reset'       && { eventLog: [], status: 'Ready.' }),
       ...(command.type === 'setLocation' && { location: command.id }),
     })),
 
