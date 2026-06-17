@@ -228,7 +228,7 @@ export class SceneDirector {
       beamHot,
       s.add.rectangle(-102, 154, 326, 96, 0xffffff, 0.98).setStrokeStyle(3, 0x2d2a24),
       s.add.rectangle(164, 154, 154, 96, 0xffffff, 0.98).setStrokeStyle(3, 0x2d2a24),
-      s.add.text(106, 116, 'MOVE\nPSYBEAM\nACK\nRUN', { ...textStyle(15), lineSpacing: 5 }),
+      s.add.text(106, 116, 'PSYBEAM\nRUN', { ...textStyle(15), lineSpacing: 5 }),
       s.add.text(92, 145, '▶', textStyle(15)),
       dialogue,
     ]);

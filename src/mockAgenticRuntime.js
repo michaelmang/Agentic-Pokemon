@@ -58,6 +58,10 @@ export class MockAgenticRuntime {
     this.speed = Math.max(0.25, speed);
   }
 
+  setTask() {
+    // Mock events are scripted; keep adapter parity with real runtimes.
+  }
+
   start() {
     this.stop();
     this.isRunning = true;

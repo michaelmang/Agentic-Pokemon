@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { createMockAgenticRuntime } from '../mockAgenticRuntime.js';
 import { topology } from '../topologyConfig.js';
 import { SceneDirector } from './SceneDirector.js';
 import { EventType } from '../events/agenticEvents.js';
+import { createAgenticRuntime } from '../runtimes/createAgenticRuntime.js';
+import { runtimeConfig } from '../runtimes/runtimeConfig.js';
 
 const LOCATIONS = {
   cinnabar: { key: 'cinnabarIsland', path: '/assets/pokered/maps/cinnabar-island.json', layer: 'Cinnabar Island' },
@@ -15,6 +16,7 @@ export class TopologyScene extends Phaser.Scene {
   constructor(callbacks = {}) {
     super({ key: 'TopologyScene' });
     this.callbacks = callbacks;
+    this.runtimeMode = callbacks.runtimeMode ?? runtimeConfig.defaultMode;
     this.audioReady = false;
     this.currentLocation = 'cinnabar';
     this.director = null;
@@ -78,12 +80,13 @@ export class TopologyScene extends Phaser.Scene {
   }
 
   createAgenticRuntime() {
-    this.runtime = createMockAgenticRuntime();
+    this.disposeRuntime();
+    this.runtime = createAgenticRuntime(this.runtimeMode);
     this.unsubscribeRuntime = this.runtime.subscribe((event) => this.applyAgenticEvent(event));
     this.applyAgenticEvent({
       type: EventType.RUNTIME_READY,
       phase: 'Ready',
-      message: 'Click RUN to replay the mock agentic event stream.',
+      message: `Click RUN to start the ${this.runtimeMode} agentic event stream.`,
     });
   }
 
@@ -91,10 +94,11 @@ export class TopologyScene extends Phaser.Scene {
 
   enableAudio() { this.audioReady = true; }
 
-  startMockRun() {
+  startMockRun(task) {
     if (!this.runtime) return;
     this.audioReady = true;
     this.director.resetAll();
+    this.runtime.setTask?.(task);
     this.runtime.start();
   }
 
@@ -109,6 +113,13 @@ export class TopologyScene extends Phaser.Scene {
     this.currentLocation = locationId;
     this.createMap(locationId);
     this.playCue('heal');
+  }
+
+  setRuntimeMode(mode) {
+    if (this.runtimeMode === mode) return;
+    this.runtimeMode = mode;
+    this.director.resetAll();
+    this.createAgenticRuntime();
   }
 
   // — Event dispatch —
@@ -134,9 +145,14 @@ export class TopologyScene extends Phaser.Scene {
   }
 
   dispose() {
+    this.disposeRuntime();
+  }
+
+  disposeRuntime() {
     this.runtime?.stop();
     this.unsubscribeRuntime?.();
     this.unsubscribeRuntime = null;
+    this.runtime = null;
   }
 
   pingNode(id) {

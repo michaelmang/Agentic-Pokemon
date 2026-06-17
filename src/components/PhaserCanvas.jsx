@@ -27,6 +27,7 @@ export function PhaserCanvas() {
   useEffect(() => {
     const scene = new TopologyScene({
       onEvent: (event) => useTopologyStore.getState().applyEvent(event),
+      runtimeMode: useTopologyStore.getState().runtimeMode,
     });
     sceneRef.current = scene;
 
@@ -48,9 +49,10 @@ export function PhaserCanvas() {
     if (!command || !scene) return;
 
     scene.enableAudio();
-    if (command.type === 'start') scene.startMockRun();
+    if (command.type === 'start') scene.startMockRun(command.task);
     else if (command.type === 'reset') scene.resetMockRun();
     else if (command.type === 'setLocation') scene.setLocation(command.id);
+    else if (command.type === 'setRuntimeMode') scene.setRuntimeMode(command.mode);
 
     clearCommand();
   }, [command, clearCommand]);
