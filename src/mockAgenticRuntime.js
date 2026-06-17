@@ -3,8 +3,8 @@ import { events, EventType } from './events/agenticEvents.js';
 const demoTask =
   'Research how multi-agent systems improve complex web research, using Anthropic-style lead/subagent architecture as the reference problem space.';
 
-const PRESENTATION_SPEED = 1.15;
-const EVENT_DWELL_MS = 2400;
+const PRESENTATION_SPEED = 1.25;
+const EVENT_DWELL_MS = 3600;
 
 // Each entry is a typed event merged with a scheduling offset (ms).
 // When wiring a real agentic runtime, replace this script with a live
@@ -12,12 +12,12 @@ const EVENT_DWELL_MS = 2400;
 const demoScript = [
   { at:   600, ...events.workflowStarted('Research request received', demoTask) },
 
-  { at:  2800, ...events.agentStarted('purification', 'Scoping research',
+  { at:  2800, ...events.agentStarted('purification', 'Clarifying the research question',
       'Clarify the research question, effort budget, success criteria, and source-quality rules.') },
-  { at:  5400, ...events.artifactCreated('purification', 'Research brief purified',
+  { at:  5400, ...events.artifactCreated('purification', 'Clarified research brief ready',
       'Brief: explain when multi-agent research helps; cover decomposition, parallel search, source quality, citations, and failure modes.') },
-  { at:  7600, ...events.signalTransferred('purification', 'illumination', 'Brief handed off',
-      'Clean research brief sent to the Illuminator for strategy and lane design.') },
+  { at:  7600, ...events.signalTransferred('purification', 'illumination', 'Question clarified for research planning',
+      'The Purifier turns the raw question into a clearer research brief and passes it to the Illuminator.') },
 
   { at:  9800, ...events.agentStarted('illumination', 'Planning parallel lanes',
       'Design research lanes: architecture, delegation prompts, source evaluation, and production risks.') },
@@ -27,17 +27,18 @@ const demoScript = [
       'Search lane: subagents use broad-to-narrow search, evaluate intermediate results, and adapt when sources are weak.') },
   { at: 17600, ...events.artifactCreated('illumination', 'Lane C findings',
       'Reliability lane: research quality depends on citations, source quality, observability, and avoiding duplicated subagent work.') },
-  { at: 20200, ...events.signalTransferred('illumination', 'perfection', 'Findings handed off',
-      'Condensed lane findings sent upward for synthesis and citation-quality judgment.') },
+  { at: 20200, ...events.signalTransferred('illumination', 'perfection', 'Findings ready for final synthesis',
+      'The Illuminator gives the source-graded findings to the Perfector for judgment and synthesis.') },
 
-  { at: 22800, ...events.agentStarted('perfection', 'Synthesizing report',
+  { at: 22800, ...events.agentStarted('perfection', 'Writing the final answer',
       'Integrate findings, check coverage against the brief, and resolve duplicated or weak claims.') },
-  { at: 25800, ...events.artifactCreated('perfection', 'Citation pass',
+  { at: 25800, ...events.artifactCreated('perfection', 'Checking source strength',
       'Citation agent pass: every important claim needs a supporting source location; weak or uncited claims are softened.') },
   { at: 28600, ...events.artifactCreated('perfection', 'Research answer drafted',
       'Answer: multi-agent research helps breadth-first questions where many independent search directions can be compressed into one synthesis.') },
-  { at: 31400, ...events.workflowCompleted('perfection', 'Research complete',
-      'Final report ready: architecture summary, when-to-use guidance, failure modes, and citation-backed claims.') },
+  { at: 31400, ...events.workflowCompleted('perfection', 'Research workflow complete',
+      'Final report ready: architecture summary, when-to-use guidance, failure modes, and citation-backed claims.',
+      { citationRisk: 'low', publicationReady: true }) },
 ];
 
 export class MockAgenticRuntime {

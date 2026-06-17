@@ -5,9 +5,10 @@ import path from 'node:path';
 const ENDPOINT = '/api/agentic/research/events';
 const LEDGER_PATH = path.resolve(process.cwd(), '.agentic-budget-ledger.json');
 const RUNS_DIR = path.resolve(process.cwd(), '.agentic-runs');
+const RUN_INDEX_PATH = path.join(RUNS_DIR, 'index.json');
 
 const DEFAULT_TASK =
-  'Research when a small multi-agent workflow is useful for complex research tasks, using a lead/subagent architecture as the reference pattern.';
+  'When is a visible three-role agentic topology, using Purification, Illumination, and Perfection, preferable to a single-agent research workflow for ambiguous product strategy research? Compare quality, cost, latency, coordination overhead, and failure modes using recent multi-agent research and practitioner evidence.';
 
 const DEFAULT_SCOUT_MODEL = 'claude-haiku-4-5-20251001';
 const DEFAULT_SYNTHESIS_MODEL = 'claude-sonnet-4-6';
@@ -104,6 +105,155 @@ async function writeRunArtifact(run) {
   return filePath;
 }
 
+async function readRunIndex() {
+  try {
+    return JSON.parse(await fs.readFile(RUN_INDEX_PATH, 'utf8'));
+  } catch {
+    return { updatedAt: null, runs: [] };
+  }
+}
+
+function collectRunSources(run) {
+  const sources = [];
+  const visit = (artifact) => {
+    if (!artifact) return;
+    if (Array.isArray(artifact)) {
+      artifact.forEach(visit);
+      return;
+    }
+    if (Array.isArray(artifact.sources)) sources.push(...artifact.sources);
+  };
+  Object.values(run.artifacts ?? {}).forEach(visit);
+  return dedupeSources(sources);
+}
+
+function countSourceGrades(sources) {
+  return sources.reduce((counts, source) => {
+    const grade = source.quality?.grade || classifySource(source).grade;
+    counts[grade] = (counts[grade] ?? 0) + 1;
+    return counts;
+  }, { primary: 0, secondary: 0, tertiary: 0, unknown: 0 });
+}
+
+function textPreview(text, length = 220) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, length);
+}
+
+function citationRiskReasons(text) {
+  const lines = String(text || '').split('\n');
+  const reasons = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (
+      /^#{2,4}\s+/.test(trimmed)
+      || /^\d+\.\s+\*\*/.test(trimmed)
+      || /^\|\s*\*\*/.test(trimmed)
+    ) {
+      reasons.push(trimmed.replace(/^#{2,4}\s+/, '').replace(/\s+/g, ' '));
+    }
+  }
+  return reasons.slice(0, 4);
+}
+
+function assessCitationReadiness(text) {
+  const normalized = String(text || '').toLowerCase();
+  if (!normalized.trim()) {
+    return {
+      publicationReady: false,
+      citationRisk: 'unknown',
+      citationRiskReasons: ['No citation readiness check was produced.'],
+    };
+  }
+
+  const highRisk = (
+    normalized.includes('critical issues')
+    || normalized.includes('risk level: high')
+    || normalized.includes('risk level: medium-high')
+    || normalized.includes('high risk')
+    || normalized.includes('critical risk')
+    || normalized.includes('citation chain broken')
+  );
+  const mediumRisk = (
+    normalized.includes('risk level: medium')
+    || normalized.includes('medium risk')
+    || normalized.includes('needs external support')
+    || normalized.includes('requires primary verification')
+  );
+  const lowRisk = (
+    normalized.includes('safe as architectural judgment')
+    || normalized.includes('no citation risk')
+  );
+
+  if (highRisk) {
+    return {
+      publicationReady: false,
+      citationRisk: 'high',
+      citationRiskReasons: citationRiskReasons(text),
+    };
+  }
+
+  if (mediumRisk) {
+    return {
+      publicationReady: false,
+      citationRisk: 'medium',
+      citationRiskReasons: citationRiskReasons(text),
+    };
+  }
+
+  return {
+    publicationReady: true,
+    citationRisk: lowRisk ? 'low' : 'unknown',
+    citationRiskReasons: citationRiskReasons(text),
+  };
+}
+
+function summarizeRun(run, artifactPath) {
+  const sources = collectRunSources(run);
+  const warningEvents = (run.events ?? []).filter((event) => (
+    event.type === 'lane.warning' || event.type === 'runtime.error'
+  ));
+  const readiness = assessCitationReadiness(run.artifacts?.citationCheck?.text);
+
+  return {
+    id: run.id,
+    task: run.task,
+    startedAt: run.startedAt,
+    completedAt: run.completedAt,
+    status: run.status,
+    costUsd: run.costUsd,
+    models: run.models,
+    artifactPath: artifactPath ? path.relative(process.cwd(), artifactPath) : null,
+    publicationReady: readiness.publicationReady,
+    citationRisk: readiness.citationRisk,
+    citationRiskReasons: readiness.citationRiskReasons,
+    sourceCount: sources.length,
+    sourceGrades: countSourceGrades(sources),
+    warnings: warningEvents.map((event) => ({
+      type: event.type,
+      phase: event.phase,
+      message: event.message,
+    })),
+    finalAnswerPreview: textPreview(run.artifacts?.synthesis?.text),
+    citationCheckPreview: textPreview(run.artifacts?.citationCheck?.text),
+  };
+}
+
+async function updateRunIndex(run, artifactPath) {
+  await fs.mkdir(RUNS_DIR, { recursive: true });
+  const index = await readRunIndex();
+  const summary = summarizeRun(run, artifactPath);
+  const priorRuns = (index.runs ?? []).filter((entry) => entry.id !== run.id);
+  const next = {
+    updatedAt: new Date().toISOString(),
+    runs: [summary, ...priorRuns].slice(0, 100),
+  };
+  await fs.writeFile(RUN_INDEX_PATH, `${JSON.stringify(next, null, 2)}\n`);
+  return next;
+}
+
 function createRunRecorder({ task, scoutModel, retrievalModel, synthesisModel, runBudgetUsd, projectBudgetUsd }) {
   return {
     id: crypto.randomUUID(),
@@ -172,8 +322,8 @@ function createEvent(type, payload) {
     id: crypto.randomUUID(),
     timestamp: Date.now(),
     source: 'anthropic-research-workflow',
-    dwellMs: 2800,
-    speed: 1.15,
+    dwellMs: 4200,
+    speed: 1,
     type,
     ...payload,
   };
@@ -216,17 +366,74 @@ function createStepSignal(parentSignal, timeoutMs, phase) {
   };
 }
 
+function classifySource(source = {}) {
+  const url = String(source.url || source.uri || '').toLowerCase();
+  const title = String(source.title || '').toLowerCase();
+
+  if (
+    url.includes('arxiv.org/')
+    || url.includes('openreview.net/')
+    || url.includes('aclanthology.org/')
+    || url.includes('dl.acm.org/')
+    || url.includes('ieeexplore.ieee.org/')
+    || url.includes('proceedings.mlr.press/')
+    || url.includes('anthropic.com/')
+    || url.includes('openai.com/')
+    || title.includes('published at ')
+  ) {
+    return {
+      grade: 'primary',
+      rationale: 'paper, preprint, official report, or official documentation',
+      claimPolicy: 'may support factual claims if the cited text directly matches the claim',
+    };
+  }
+
+  if (
+    url.includes('towardsdatascience.com/')
+    || url.includes('redis.io/blog/')
+    || url.includes('galileo.ai/blog/')
+    || url.includes('augmentcode.com/guides/')
+  ) {
+    return {
+      grade: 'secondary',
+      rationale: 'technical explainer or practitioner writeup',
+      claimPolicy: 'may support directional claims; verify exact numeric claims before publication',
+    };
+  }
+
+  if (
+    url.includes('medium.com/')
+    || url.includes('beam.ai/')
+    || title.includes('patterns')
+    || title.includes('guide')
+  ) {
+    return {
+      grade: 'tertiary',
+      rationale: 'blog, marketing, or broad practitioner commentary',
+      claimPolicy: 'may support practitioner sentiment or examples only; do not treat numbers as validated',
+    };
+  }
+
+  return {
+    grade: 'unknown',
+    rationale: 'source type not recognized by local grading rules',
+    claimPolicy: 'use only as a lead for follow-up verification',
+  };
+}
+
 function extractWebSearchSources(content = []) {
   const sources = new Map();
 
   const remember = (source) => {
     const url = source.url || source.uri;
     if (!url) return;
+    const quality = classifySource(source);
     sources.set(url, {
       url,
       title: source.title || url,
       pageAge: source.page_age,
       citedText: source.cited_text,
+      quality,
     });
   };
 
@@ -478,7 +685,7 @@ Use exactly one web search. Keep the search narrow. Return:
 2. what the source does and does not prove for the user's topology decision
 3. one citation risk or caveat
 
-Do not invent citations, paper titles, percentages, or source names. If the source is weak or indirect, say so.`;
+Do not invent citations, paper titles, percentages, or source names. If the source is weak, indirect, secondary, or practitioner-only, say so.`;
 }
 
 function promptForSynthesis(task, brief, strategy, lanes) {
@@ -502,7 +709,9 @@ Act as the Perfection / Research Synthesizer role. Produce:
 Evidence discipline:
 - Treat only the Evidence Lane Findings source index as retrieved evidence.
 - Cite retrieved evidence with bracketed source IDs, such as [E1].
+- Respect source quality grades. Primary sources can support factual claims; secondary sources can support directional claims; tertiary sources can support only practitioner sentiment or illustrative examples; unknown sources are leads only.
 - Do not cite or repeat named studies, exact percentages, author names, or organization-specific claims unless they appear in the Evidence Lane Findings with a source ID.
+- If an exact number appears only in a secondary, tertiary, or unknown source, frame it as "reported by [source]" and mark it as requiring verification.
 - Treat Architecture and Risk lane numeric thresholds as hypotheses unless corroborated by Evidence.
 Keep it concise but complete.`;
 }
@@ -519,6 +728,7 @@ Return a short citation/readiness check:
 - claims that need external support
 - claims that are safe as architectural judgment
 - claims that cite a source ID but are not supported by that source index
+- claims that overstate what their source quality grade allows
 - suggested next verification step`;
 }
 
@@ -526,9 +736,23 @@ function dedupeSources(sources) {
   const byUrl = new Map();
   for (const source of sources) {
     if (!source?.url || byUrl.has(source.url)) continue;
-    byUrl.set(source.url, source);
+    byUrl.set(source.url, {
+      ...source,
+      quality: source.quality || classifySource(source),
+    });
   }
   return [...byUrl.values()];
+}
+
+function formatClaimPolicy() {
+  return [
+    '| Grade | Allowed Use |',
+    '|---|---|',
+    '| primary | May support factual claims when the cited text/source directly matches the claim. |',
+    '| secondary | May support directional claims and implementation context; exact numeric claims need primary verification. |',
+    '| tertiary | May support practitioner sentiment or illustrative examples only; do not treat numbers as validated. |',
+    '| unknown | Use only as a lead for follow-up verification. |',
+  ].join('\n');
 }
 
 function formatSourceIndex(sources, prefix = 'E') {
@@ -537,9 +761,18 @@ function formatSourceIndex(sources, prefix = 'E') {
     .map((source, index) => {
       const id = `${prefix}${index + 1}`;
       const title = source.title || source.url;
+      const quality = source.quality || classifySource(source);
       const citedText = source.citedText ? `\n  - cited text: ${source.citedText}` : '';
       const pageAge = source.pageAge ? `\n  - page age: ${source.pageAge}` : '';
-      return `- [${id}] ${title}\n  - url: ${source.url}${pageAge}${citedText}`;
+      return [
+        `- [${id}] ${title}`,
+        `  - url: ${source.url}`,
+        `  - quality: ${quality.grade}`,
+        `  - rationale: ${quality.rationale}`,
+        `  - allowed use: ${quality.claimPolicy}`,
+        pageAge,
+        citedText,
+      ].filter(Boolean).join('\n');
     })
     .join('\n');
 }
@@ -582,7 +815,7 @@ async function runEvidenceLane({
         recorder,
         artifactKey: null,
         phase: `Searching evidence ${index + 1}/${focuses.length}`,
-        artifactPhase: `Evidence source note ${index + 1}`,
+        artifactPhase: `Source-backed evidence note ${index + 1}`,
         system,
         prompt: promptForFocusedRetrieval(task, focus),
         maxTokens: 500,
@@ -639,6 +872,10 @@ async function runEvidenceLane({
     '',
     notes.join('\n\n---\n\n'),
     '',
+    '## Source Quality Policy',
+    '',
+    formatClaimPolicy(),
+    '',
     '## Combined Source Index',
     '',
     formatSourceIndex(dedupeSources(allSources)),
@@ -648,7 +885,7 @@ async function runEvidenceLane({
     '',
     '## Synthesis instruction',
     '',
-    'Perfection may cite only the sourced findings above as retrieved evidence. Use bracketed source IDs from the Combined Source Index, such as [E1]. Any numeric thresholds not present here must remain hypotheses or architectural judgment.',
+    'Perfection may cite only the sourced findings above as retrieved evidence. Use bracketed source IDs from the Combined Source Index, such as [E1]. Claims must obey each source quality grade. Any numeric thresholds from secondary, tertiary, or unknown sources must remain hypotheses or citation risks unless corroborated by a primary source.',
   ].join('\n');
 
   return recordSyntheticArtifact({
@@ -725,8 +962,9 @@ async function runResearchWorkflow({ req, res }) {
     });
 
     send(createEvent('workflow.started', {
-      phase: 'Real research workflow started',
+      phase: 'Research workflow started',
       message: `Budget guard: $${budget.effectiveRunBudgetUsd.toFixed(2)} max this run; $${projectBudgetUsd.toFixed(2)} project cap.`,
+      runCostUsd: 0,
     }));
     runStatus = 'running';
 
@@ -740,8 +978,8 @@ async function runResearchWorkflow({ req, res }) {
       agentId: 'purification',
       recorder,
       artifactKey: 'brief',
-      phase: 'Scoping real research task',
-      artifactPhase: 'Research brief created',
+      phase: 'Clarifying the research question',
+      artifactPhase: 'Clarified research brief ready',
       system,
       prompt: promptForScoper(task),
       maxTokens: 700,
@@ -753,8 +991,8 @@ async function runResearchWorkflow({ req, res }) {
     send(createEvent('signal.transferred', {
       from: 'purification',
       to: 'illumination',
-      phase: 'Brief handed off',
-      message: 'Purified research brief sent upward for lane strategy.',
+      phase: 'Question clarified for research planning',
+      message: 'The Purifier turns the raw question into a clearer research brief and passes it to the Illuminator.',
     }));
     await sleep(900);
 
@@ -767,7 +1005,7 @@ async function runResearchWorkflow({ req, res }) {
       recorder,
       artifactKey: 'strategy',
       phase: 'Planning research lanes',
-      artifactPhase: 'Research lanes planned',
+      artifactPhase: 'Research plan ready',
       system,
       prompt: promptForStrategist(task, brief),
       maxTokens: 900,
@@ -808,7 +1046,7 @@ async function runResearchWorkflow({ req, res }) {
           agentId: 'illumination',
           recorder,
           artifactKey: 'lanes',
-          phase: `Running ${laneName.toLowerCase()}`,
+          phase: `Reasoning through ${laneName.toLowerCase()}`,
           artifactPhase: `${laneName} findings`,
           system,
           prompt: promptForLane(task, brief, strategy, laneName),
@@ -826,8 +1064,8 @@ async function runResearchWorkflow({ req, res }) {
     send(createEvent('signal.transferred', {
       from: 'illumination',
       to: 'perfection',
-      phase: 'Findings handed off',
-      message: 'Condensed lane findings sent upward for synthesis.',
+      phase: 'Findings ready for final synthesis',
+      message: 'The Illuminator gives the source-graded findings to the Perfector for judgment and synthesis.',
     }));
     await sleep(900);
 
@@ -839,7 +1077,7 @@ async function runResearchWorkflow({ req, res }) {
       agentId: 'perfection',
       recorder,
       artifactKey: 'synthesis',
-      phase: 'Synthesizing final answer',
+      phase: 'Writing the final answer',
       artifactPhase: 'Research answer drafted',
       system,
       prompt: promptForSynthesis(task, brief, strategy, lanes),
@@ -857,7 +1095,7 @@ async function runResearchWorkflow({ req, res }) {
       agentId: 'perfection',
       recorder,
       artifactKey: 'citationCheck',
-      phase: 'Checking citation readiness',
+      phase: 'Checking source strength',
       artifactPhase: 'Citation readiness checked',
       system,
       prompt: promptForCitationCheck(synthesis, lanes),
@@ -867,10 +1105,15 @@ async function runResearchWorkflow({ req, res }) {
     });
     if (!citationCheck) return;
 
+    const readiness = assessCitationReadiness(citationCheck);
     send(createEvent('workflow.completed', {
       agentId: 'perfection',
-      phase: 'Real research complete',
-      message: `Run complete. Estimated model cost: $${budget.spentUsd.toFixed(4)}.`,
+      phase: 'Research workflow complete',
+      message: `Run complete. Estimated model cost: $${budget.spentUsd.toFixed(4)}. Citation risk: ${readiness.citationRisk}.`,
+      runCostUsd: Number(budget.spentUsd.toFixed(6)),
+      publicationReady: readiness.publicationReady,
+      citationRisk: readiness.citationRisk,
+      citationRiskReasons: readiness.citationRiskReasons,
     }));
     runStatus = 'completed';
 
@@ -894,8 +1137,10 @@ async function runResearchWorkflow({ req, res }) {
       runStatus = 'incomplete';
     }
     recorder.finish(runStatus, budget?.spentUsd ?? 0);
+    let artifactPath = null;
     if (recorder.events.length > 0 || budget?.spentUsd > 0) {
-      await writeRunArtifact(recorder).catch(() => {});
+      artifactPath = await writeRunArtifact(recorder).catch(() => null);
+      if (artifactPath) await updateRunIndex(recorder, artifactPath).catch(() => {});
     }
 
     if (budget && budget.spentUsd > 0 && !saved) {

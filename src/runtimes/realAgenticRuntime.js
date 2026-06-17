@@ -1,7 +1,7 @@
 import { events, EventType } from '../events/agenticEvents.js';
 
 const DEFAULT_RESEARCH_TASK =
-  'Run a small multi-agent research workflow and stream topology events for scoping, lane planning, synthesis, and final answer.';
+  'When is a visible three-role agentic topology, using Purification, Illumination, and Perfection, preferable to a single-agent research workflow for ambiguous product strategy research? Compare quality, cost, latency, coordination overhead, and failure modes using recent multi-agent research and practitioner evidence.';
 
 export class RealAgenticRuntime {
   constructor(options = {}) {

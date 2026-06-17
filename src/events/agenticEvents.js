@@ -21,8 +21,8 @@ export const events = {
   workflowStarted: (phase, message) =>
     ({ type: EventType.WORKFLOW_STARTED, phase, message }),
 
-  workflowCompleted: (agentId, phase, message) =>
-    ({ type: EventType.WORKFLOW_COMPLETED, agentId, phase, message }),
+  workflowCompleted: (agentId, phase, message, meta = {}) =>
+    ({ type: EventType.WORKFLOW_COMPLETED, agentId, phase, message, ...meta }),
 
   workflowReset: () =>
     ({ type: EventType.WORKFLOW_RESET, phase: 'Reset', message: 'Event stream reset.' }),

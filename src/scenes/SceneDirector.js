@@ -26,7 +26,17 @@ function battleName(node) {
 
 function transferVerb(context) {
   const phrase = context.message || context.artifact || context.phase || 'a signal upward';
-  return phrase.length > 42 ? `${phrase.slice(0, 39)}...` : phrase;
+  return phrase.length > 96 ? `${phrase.slice(0, 93)}...` : phrase;
+}
+
+function transferExplanation(context) {
+  if (context.from === 'purification' && context.to === 'illumination') {
+    return 'The Purifier shares a clarified question so the Illuminator can plan the research.';
+  }
+  if (context.from === 'illumination' && context.to === 'perfection') {
+    return 'The Illuminator shares source-graded findings so the Perfector can synthesize a final answer.';
+  }
+  return transferVerb(context);
 }
 
 function beamPoint(from, to, progress, wave = 0) {
@@ -201,15 +211,14 @@ export class SceneDirector {
     const H = s.scale.height;
 
     const overlay = s.add.container(W / 2, H / 2).setDepth(42);
-    const targetSprite = s.add.image(150, -124, target.node.sprite).setScale(2.2).setTint(target.node.accent);
+    const targetSprite = s.add.image(150, -124, target.node.sprite).setScale(2.2);
     const sourceSprite = s.add.image(-190, 62, source.node.character?.spriteBack || source.node.sprite)
-      .setScale(2.6)
-      .setTint(source.node.accent);
+      .setScale(2.6);
     const beamGlow = s.add.rectangle(-18, -34, 306, 20, 0x8f4cff, 0.28).setRotation(-0.58);
     const beamCore = s.add.rectangle(-18, -34, 296, 10, 0x2dd7ff, 0.88).setRotation(-0.58);
     const beamHot = s.add.rectangle(-18, -34, 296, 4, 0xffffff, 0.95).setRotation(-0.58);
-    const dialogue = s.add.text(-250, 114, '', {
-      ...textStyle(15), lineSpacing: 4, wordWrap: { width: 335 },
+    const dialogue = s.add.text(-250, 108, '', {
+      ...textStyle(14), lineSpacing: 3, wordWrap: { width: 488 },
     });
 
     overlay.add([
@@ -226,10 +235,7 @@ export class SceneDirector {
       beamGlow,
       beamCore,
       beamHot,
-      s.add.rectangle(-102, 154, 326, 96, 0xffffff, 0.98).setStrokeStyle(3, 0x2d2a24),
-      s.add.rectangle(164, 154, 154, 96, 0xffffff, 0.98).setStrokeStyle(3, 0x2d2a24),
-      s.add.text(106, 116, 'PSYBEAM\nRUN', { ...textStyle(15), lineSpacing: 5 }),
-      s.add.text(92, 145, '▶', textStyle(15)),
+      s.add.rectangle(0, 154, 522, 108, 0xffffff, 0.98).setStrokeStyle(3, 0x2d2a24),
       dialogue,
     ]);
 
@@ -242,12 +248,12 @@ export class SceneDirector {
       yoyo: true,
       ease: 'Stepped',
     });
-    this.#typeLine(dialogue, `${battleName(source.node)} used PSYBEAM.\n${transferVerb(context)}.`);
+    this.#typeLine(dialogue, `${battleName(source.node)} used PSYBEAM.\n${transferExplanation(context)}`);
     this.#psybeam(overlay, sourceSprite, targetSprite, source.node.accent, target.node.accent);
 
     this.#timers.push(
       s.time.delayedCall(Math.max(2100, dwellMs * 0.74), () => {
-        this.#typeLine(dialogue, `${battleName(target.node)} received the signal.\n\n${context.phase || 'Communication logged'}.`);
+        this.#typeLine(dialogue, `${battleName(target.node)} received it.\n\n${context.phase || 'The next role begins.'}`);
         this.#burst(target.node.x, target.node.y, target.node.accent, 18, 28);
       }),
       s.time.delayedCall(Math.max(1700, dwellMs + 700), () => this.#clearOverlay()),
@@ -425,9 +431,9 @@ export class SceneDirector {
 
   #typeLine(textObject, message) {
     textObject.setText('');
-    message.slice(0, 120).split('').forEach((char, i) => {
+    message.slice(0, 180).split('').forEach((char, i) => {
       this.#timers.push(
-        this.#scene.time.delayedCall(i * 18, () => {
+        this.#scene.time.delayedCall(i * 28, () => {
           if (textObject.scene) textObject.setText(textObject.text + char);
         }),
       );

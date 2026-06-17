@@ -4,7 +4,7 @@ import { runtimeConfig } from '../runtimes/runtimeConfig.js';
 
 const MAX_LOG = 24;
 const DEFAULT_RESEARCH_TASK =
-  'Research when a small multi-agent workflow is useful for complex research tasks, using a lead/subagent architecture as the reference pattern.';
+  'When is a visible three-role agentic topology, using Purification, Illumination, and Perfection, preferable to a single-agent research workflow for ambiguous product strategy research? Compare quality, cost, latency, coordination overhead, and failure modes using recent multi-agent research and practitioner evidence.';
 
 const LOG_LABEL = {
   [EventType.RUNTIME_READY]:      'ready',
@@ -18,10 +18,39 @@ const LOG_LABEL = {
   [EventType.LANE_WARNING]:       'lane.warn',
 };
 
+function costText(event) {
+  return typeof event.runCostUsd === 'number' ? ` · $${event.runCostUsd.toFixed(4)}` : '';
+}
+
+function sourceText(event) {
+  const count = Array.isArray(event.sources) ? event.sources.length : 0;
+  return count > 0 ? ` · ${count} sources` : '';
+}
+
+function readinessText(event) {
+  if (!event.citationRisk) return '';
+  const ready = event.publicationReady ? 'publication-ready' : 'needs citation repair';
+  return ` · citation risk: ${event.citationRisk} · ${ready}`;
+}
+
 function formatLogEvent(event) {
   const label = LOG_LABEL[event.type] ?? event.type;
-  const detail = event.artifact || event.message || event.phase || '';
-  return `${label}: ${detail}`;
+  const detail = event.phase || event.message || '';
+  return `${label}: ${detail}${costText(event)}${sourceText(event)}${readinessText(event)}`;
+}
+
+function formatStatus(event) {
+  if (event.type === EventType.RUNTIME_READY) return event.message || 'Ready.';
+  if (event.type === EventType.RUNTIME_ERROR) return `Error: ${event.phase || event.message || 'workflow stopped'}`;
+  if (event.type === EventType.WORKFLOW_STARTED) return `${event.phase || 'Workflow started'}${costText(event)}`;
+  if (event.type === EventType.WORKFLOW_COMPLETED) {
+    return `${event.phase || 'Workflow complete'}${costText(event)}${readinessText(event)}`;
+  }
+  if (event.type === EventType.LANE_WARNING) return `Warning: ${event.phase || event.message}`;
+  if (event.type === EventType.AGENT_STARTED) return `${event.phase || 'Agent working'}${costText(event)}`;
+  if (event.type === EventType.ARTIFACT_CREATED) return `${event.phase || 'Artifact created'}${costText(event)}${sourceText(event)}`;
+  if (event.type === EventType.SIGNAL_TRANSFERRED) return `${event.phase || 'Signal transferred'}: ${event.from} → ${event.to}`;
+  return event.phase || event.type;
 }
 
 export const useTopologyStore = create((set) => ({
@@ -34,7 +63,7 @@ export const useTopologyStore = create((set) => ({
   command: null,
 
   applyEvent: (event) => {
-    const status = `${event.phase || event.type}: ${event.message || event.artifact || ''}`;
+    const status = formatStatus(event);
     const line = formatLogEvent(event);
     set((s) => ({
       status,
